@@ -6,11 +6,7 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
-from app.api.db.database import AbstractUserRepository
-from app.api.errors.exceptions import (
-    InvalidTokenException,
-    UserUnauthorisedException,
-)
+from app.api.errors.exceptions import InvalidTokenException
 from app.core.config import settings
 
 
@@ -24,15 +20,6 @@ def get_password_hash(password: str) -> str:
 
 def verify_password(password: str, hashed_password: str) -> bool:
     return pwd_context.verify(password, hashed_password)
-
-
-def authenticate_user(
-    username: str, password: str, repo: AbstractUserRepository
-) -> None:
-    user = repo.get_user(username)
-    if not (user and verify_password(password, user.hashed_password)):
-        raise UserUnauthorisedException()
-    return None
 
 
 def create_jwt_token(data: dict) -> str:

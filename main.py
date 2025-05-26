@@ -8,6 +8,7 @@ from app.api.errors.handlers import handlers
 
 app = FastAPI(exception_handlers=handlers)
 
+
 app.include_router(currency_router)
 app.include_router(auth_router)
 

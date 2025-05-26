@@ -22,6 +22,7 @@ def http_exception_handler(
     return JSONResponse(
         status_code=exc.status_code,
         content={"message": f"Ошибка {exc.status_code} - {exc.detail}"},
+        headers=exc.headers,
     )
 
 

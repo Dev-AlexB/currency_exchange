@@ -3,8 +3,9 @@ from typing import Annotated
 from fastapi import Depends
 
 from app.api.db.database import AbstractUserRepository, get_user_repo
+from app.api.errors.exceptions import UserUnauthorisedException
 from app.api.schemas.users import User, UserCreate, UserInDB
-from app.core.security import authenticate_user as au
+from app.core.security import verify_password
 
 
 class UserService:
@@ -18,7 +19,10 @@ class UserService:
         return self.repo.get_user(username)
 
     def authenticate_user(self, username: str, password: str):
-        return au(username, password, self.repo)
+        user = self.read_user_from_db(username)
+        if not (user and verify_password(password, user.hashed_password)):
+            raise UserUnauthorisedException()
+        return None
 
 
 def get_user_service(
