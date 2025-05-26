@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr
 
 
 class User(BaseModel):
@@ -18,4 +18,4 @@ class UserInDB(User):
 
 class Token(BaseModel):
     access_token: str
-    token_type: str = 'bearer'
+    token_type: str = "bearer"

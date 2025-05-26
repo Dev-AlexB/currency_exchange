@@ -1,10 +1,8 @@
 import uvicorn
 from fastapi import FastAPI
 
-
 from app.api.endpoints.currency import currency_router
 from app.api.endpoints.users import auth_router
-
 from app.api.errors.handlers import handlers
 
 

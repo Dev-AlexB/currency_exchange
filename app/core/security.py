@@ -2,17 +2,20 @@ import datetime
 from typing import Annotated
 
 import jwt
-from passlib.context import CryptContext
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
+from passlib.context import CryptContext
 
 from app.api.db.database import get_user_from_db
-from app.api.errors.exceptions import UserUnauthorisedException, InvalidTokenException
+from app.api.errors.exceptions import (
+    InvalidTokenException,
+    UserUnauthorisedException,
+)
 from app.core.config import settings
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='auth/login')
-pwd_context = CryptContext(schemes='bcrypt')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+pwd_context = CryptContext(schemes="bcrypt")
 
 
 def get_password_hash(password: str) -> str:
@@ -34,25 +37,21 @@ def create_jwt_token(data: dict) -> str:
     expire = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
         minutes=settings.JWT.EXPIRES_MINUTES
     )
-    to_encode.update({'exp': expire})
+    to_encode.update({"exp": expire})
     return jwt.encode(
-        data,
-        settings.JWT.SECRET_KEY,
-        algorithm=settings.JWT.ALGORITHM
+        data, settings.JWT.SECRET_KEY, algorithm=settings.JWT.ALGORITHM
     )
 
 
 def get_username_from_token(
-        token: Annotated[str, Depends(oauth2_scheme)]
+    token: Annotated[str, Depends(oauth2_scheme)]
 ) -> str:
     try:
         payload = jwt.decode(
-            token,
-            settings.JWT.SECRET_KEY,
-            algorithms=[settings.JWT.ALGORITHM]
+            token, settings.JWT.SECRET_KEY, algorithms=[settings.JWT.ALGORITHM]
         )
-        return payload.get('sub')
+        return payload.get("sub")
     except jwt.ExpiredSignatureError:
-        raise InvalidTokenException(detail='Токен устарел')
+        raise InvalidTokenException(detail="Токен устарел")
     except jwt.InvalidTokenError:
-        raise InvalidTokenException(detail='Ошибка чтения токена')
+        raise InvalidTokenException(detail="Ошибка чтения токена")

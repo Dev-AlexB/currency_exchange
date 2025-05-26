@@ -1,5 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
-
+from pydantic import BaseModel, Field
 
 
 class CurrencyRequest(BaseModel):
@@ -7,7 +6,7 @@ class CurrencyRequest(BaseModel):
 
     currency_1: str
     currency_2: str
-    amount: float  = Field(gt=0, default=1)
+    amount: float = Field(gt=0, default=1)
 
 
 class CurrencyResponse(CurrencyRequest):
