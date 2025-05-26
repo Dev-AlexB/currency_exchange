@@ -33,7 +33,7 @@ def request_validation_error_handler(
 
     message = (
         f"Вызвано исключение RequestValidationError. Ошибки:\n"
-        f'{'\n'.join(exc.errors())}\n'
+        f'{'\n'.join(map(str, exc.errors()))}\n'
         f"Тело запроса, вызвавшего ошибку:\n{exc.body}"
     )
     logger.exception(message)

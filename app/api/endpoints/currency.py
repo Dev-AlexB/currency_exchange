@@ -21,7 +21,7 @@ currency_router = APIRouter(
 )
 
 
-@currency_router.post("/exchange/")
+@currency_router.get("/exchange/")
 async def currency_exchange(
     currency_1: Annotated[str, Query(..., alias="from")],
     currency_2: Annotated[str, Query(..., alias="to")],

@@ -1,5 +1,3 @@
-import json
-
 import requests
 from fastapi import status
 
@@ -22,7 +20,7 @@ def ext_api_request(url: str, **kwargs):
     st_code, text = response.status_code, response.text
     logger.debug(f"Запрос к внешнему API. Cтатус:{st_code}. {text}")
     if response.status_code == 200:
-        return json.loads(response.json())
+        return response.json()
     raise ExternalAPIError(status_code=st_code, detail=text)
 
 
