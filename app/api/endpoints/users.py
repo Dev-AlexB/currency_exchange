@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.db.services import UserService, get_user_service
@@ -14,7 +14,7 @@ auth_router = APIRouter(
 )
 
 
-@auth_router.post("/register/")
+@auth_router.post("/register/", status_code=status.HTTP_201_CREATED)
 async def reg(
     user: UserCreate,
     user_service: Annotated[UserService, Depends(get_user_service)],

@@ -35,7 +35,10 @@ class FakeDatabase(AbstractUserRepository):
     def add_user(self, user: UserCreate) -> User:
         name, password = user.username.lower(), user.password
         if not self.get_user(name):
-            user_dict = user.model_dump(exclude={"password"})
+            user_dict = {
+                key: value.lower()
+                for key, value in user.model_dump(exclude={"password"}).items()
+            }
             user_added = UserInDB(
                 **user_dict, hashed_password=get_password_hash(password)
             )

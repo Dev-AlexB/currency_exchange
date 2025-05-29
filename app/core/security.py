@@ -29,7 +29,7 @@ def create_jwt_token(data: dict) -> str:
     )
     to_encode.update({"exp": expire})
     return jwt.encode(
-        data, settings.JWT.SECRET_KEY, algorithm=settings.JWT.ALGORITHM
+        to_encode, settings.JWT.SECRET_KEY, algorithm=settings.JWT.ALGORITHM
     )
 
 
