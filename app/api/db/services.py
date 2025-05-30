@@ -18,11 +18,11 @@ class UserService:
     def read_user_from_db(self, username: str) -> UserInDB:
         return self.repo.get_user(username)
 
-    def authenticate_user(self, username: str, password: str):
+    def authenticate_user(self, username: str, password: str) -> UserInDB:
         user = self.read_user_from_db(username)
-        if not (user and verify_password(password, user.hashed_password)):
-            raise UserUnauthorisedException()
-        return None
+        if user and verify_password(password, user.hashed_password):
+            return user
+        raise UserUnauthorisedException()
 
 
 def get_user_service(

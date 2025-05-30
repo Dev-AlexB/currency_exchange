@@ -1,47 +1,83 @@
 import pytest
+from fastapi.exceptions import RequestValidationError
+
+from app.api.errors.exceptions import InvalidUsernameException
+from app.api.schemas.users import User
 
 
-# набор тестов машрутов авторизации и регистрации
+# набор тестов маршрутов авторизации и регистрации
 class TestUsers:
-    # @pytest.mark.skip
     @pytest.mark.parametrize(
-        "data, s_code, message",
+        "input_data, mock_return, mock_side_effect, "
+        "expected_status, expected_message, expected_username",
         [
-            # успешная регистрация и проверка lower
+            # Успешная регистрация
             (
                 {
-                    "username": "Alex",
-                    "email": "alex@example.com",
-                    "password": "my_pass",
+                    "username": "valid_name",
+                    "email": "valid@email.com",
+                    "password": "valid_pass",
                 },
+                User(username="valid_name", email="valid@email.com"),
+                None,
                 201,
-                "Пользователь alex успешно создан.",
+                "Пользователь valid_name успешно создан.",
+                "valid_name",
             ),
-            # пользователь уже зарегистрирован
+            # Пользователь уже существует
             (
                 {
                     "username": "admin",
-                    "password": "pass",
                     "email": "admin@mail.ru",
+                    "password": "pass",
                 },
+                None,
+                InvalidUsernameException("admin"),
                 400,
-                "Ошибка 400 - Имя пользователя admin занято. "
-                "Пожалуйста, используйте другое!",
+                "Имя пользователя admin занято.",
+                None,
             ),
-            # не все поля заполнены (проверка валидации)
+            # Ошибка валидации (не хватает полей)
             (
-                {"username": "John"},
+                {"username": "valid_name"},
+                None,
+                RequestValidationError(
+                    errors=[
+                        "some error",
+                    ]
+                ),
                 422,
                 "Ошибка валидации отправленных данных.",
+                None,
             ),
         ],
         ids=[
             "Successful registration",
-            "Error: username exists",
-            "Error: not enough fields",
+            "Username already exists",
+            "Validation error",
         ],
     )
-    def test_reg(self, data, s_code, message, client):
-        response = client.post("/auth/register/", json=data)
-        assert response.status_code == s_code
-        assert response.json().get("message") == message
+    def test_reg(
+        self,
+        mocker,
+        client,
+        input_data,
+        mock_return,
+        mock_side_effect,
+        expected_status,
+        expected_message,
+        expected_username,
+    ):
+        mocker.patch(
+            "app.api.db.services.UserService.register_user",
+            return_value=mock_return,
+            side_effect=mock_side_effect,
+        )
+        response = client.post("/auth/register", json=input_data)
+        assert response.status_code == expected_status
+        assert expected_message in response.json()["message"]
+        if expected_username:
+            assert response.json()["details"]["username"] == expected_username
+
+    def test_login(self):
+        pass

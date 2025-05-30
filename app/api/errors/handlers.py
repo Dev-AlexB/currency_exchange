@@ -8,17 +8,36 @@ from app.api.errors.exceptions import ExternalAPIError
 from app.api.errors.logger import logger
 
 
+def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Обрабатывает и логгирует все необработанные ошибки.
+
+    Обрабатывает ошибки не обработанные другими хэндлерамию
+    """
+
+    message = f"Вызвано незадокументированное исключение {type(exc).__name__}."
+    # передать exc_info=exc, чтобы включить инфо об ошибке (fastapi сам кидает в консоль)
+    logger.critical(message)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "Внутренняя ошибка сервера."},
+    )
+
+
 def http_exception_handler(
     request: Request, exc: StarletteHTTPException
 ) -> JSONResponse:
-    """Обрабатывает и логгирует ошибки HTTP."""
+    """Обрабатывает и логгирует ошибки HTTP.
+
+    Перехватывает, в том числе InvalidUsernameException,
+    UserUnauthorisedException, InvalidTokenException.
+    """
 
     message = (
-        f"Вызвано исключение HTTPException. "
+        f"Вызвано исключение {type(exc).__name__}. "
         f"Статус-код: {exc.status_code}. "
         f"Детали:\n{exc.detail}"
     )
-    logger.exception(message)
+    logger.error(message)
     return JSONResponse(
         status_code=exc.status_code,
         content={"message": f"Ошибка {exc.status_code} - {exc.detail}"},
@@ -32,15 +51,15 @@ def request_validation_error_handler(
     """Обрабатывает и логгирует ошибки валидации данных клиента."""
 
     message = (
-        f"Вызвано исключение RequestValidationError. Ошибки:\n"
+        f"Вызвано исключение {type(exc).__name__}. Ошибки:\n"
         f'{'\n'.join(map(str, exc.errors()))}\n'
         f"Тело запроса, вызвавшего ошибку:\n{exc.body}"
     )
-    logger.exception(message)
+    logger.error(message)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "message": "Ошибка валидации отправленных данных.",
+            "message": "Ошибка валидации отправленных клиентом данных.",
             "errors": exc.errors(),
             "body": exc.body,
         },
@@ -53,10 +72,10 @@ def validation_error_handler(
     """Обрабатывает и логгирует внутренние ошибки валидации."""
 
     message = (
-        f"Вызвано исключение ValidationError. Ошибки:\n"
+        f"Вызвано исключение {type(exc).__name__}. Ошибки:\n"
         f'{'\n'.join(map(str, exc.errors()))}'
     )
-    logger.exception(message)
+    logger.critical(message)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"message": "Внутренняя ошибка сервера."},
@@ -69,20 +88,21 @@ def external_api_error_handler(
     """Обрабатывает и логгирует ошибки внешнего API."""
 
     message = (
-        f"Вызвано исключение ExternalAPIError."
+        f"Вызвано исключение {type(exc).__name__}."
         f"Статус-код ответа внешнего API: {exc.status_code}. "
         f"Текст ответа:\n{exc.detail}"
     )
-    logger.exception(message)
     if exc.status_code == 402:
+        logger.error(message)
         return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "message": "Код валюты не найден. "
                 "Для проверки доступных кодов воспользуйтесь URL "
                 "currency/list"
             },
         )
+    logger.critical(message)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"message": "Проблема с ответом внешнего API"},
@@ -94,4 +114,5 @@ handlers = {
     RequestValidationError: request_validation_error_handler,
     ValidationError: validation_error_handler,
     ExternalAPIError: external_api_error_handler,
+    Exception: global_exception_handler,
 }
