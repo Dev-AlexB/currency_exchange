@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.db.services import UserService, get_user_service
-from app.api.schemas.users import Token, User, UserCreate
+from app.api.schemas.users import Token, UserCreate
 from app.core.security import create_jwt_token
 
 
@@ -28,7 +28,7 @@ async def reg(
 
 @auth_router.post("/login/")
 async def login(
-    form_data: Annotated[User, Depends(OAuth2PasswordRequestForm)],
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> Token:
     user = user_service.authenticate_user(

@@ -1,11 +1,7 @@
 from fastapi import HTTPException, status
 
 
-class CustomException(HTTPException):
-    pass
-
-
-class InvalidUsernameException(CustomException):
+class InvalidUsernameException(HTTPException):
     def __init__(self, name):
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -14,7 +10,7 @@ class InvalidUsernameException(CustomException):
         )
 
 
-class UserUnauthorisedException(CustomException):
+class UserUnauthorisedException(HTTPException):
     def __init__(self, detail=None):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -27,5 +23,12 @@ class InvalidTokenException(UserUnauthorisedException):
     pass
 
 
-class ExternalAPIError(CustomException):
+class ExternalAPIHTTPError(HTTPException):
     pass
+
+
+class ExternalAPIKeyError(KeyError):
+    def __init__(self, key, data_dict):
+        self.message = f"Ключ {key} не найден в JSON из внешнего API"
+        f"Ответ внешнего API: {data_dict}"
+        super().__init__(self.message)

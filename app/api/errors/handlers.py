@@ -1,10 +1,10 @@
 from fastapi import Request, status
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.errors.exceptions import ExternalAPIError
+from app.api.errors.exceptions import ExternalAPIHTTPError, ExternalAPIKeyError
 from app.api.errors.logger import logger
 
 
@@ -61,7 +61,7 @@ def request_validation_error_handler(
         content={
             "message": "Ошибка валидации отправленных клиентом данных.",
             "errors": exc.errors(),
-            "body": exc.body,
+            "body": str(exc.body),
         },
     )
 
@@ -82,8 +82,8 @@ def validation_error_handler(
     )
 
 
-def external_api_error_handler(
-    request: Request, exc: ExternalAPIError
+def external_api_http_error_handler(
+    request: Request, exc: ExternalAPIHTTPError
 ) -> JSONResponse:
     """Обрабатывает и логгирует ошибки внешнего API."""
 
@@ -109,10 +109,23 @@ def external_api_error_handler(
     )
 
 
+def external_api_key_error_handler(
+    request: Request, exc: ExternalAPIKeyError
+) -> JSONResponse:
+    message = f"Вызвано исключение {type(exc).__name__}: {exc}"
+    logger.critical(message)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "Проблема с ответом внешнего API"},
+    )
+
+
 handlers = {
     StarletteHTTPException: http_exception_handler,
     RequestValidationError: request_validation_error_handler,
     ValidationError: validation_error_handler,
-    ExternalAPIError: external_api_error_handler,
+    ResponseValidationError: validation_error_handler,
+    ExternalAPIHTTPError: external_api_http_error_handler,
+    ExternalAPIKeyError: external_api_key_error_handler,
     Exception: global_exception_handler,
 }

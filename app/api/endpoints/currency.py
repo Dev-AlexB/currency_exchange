@@ -23,12 +23,9 @@ currency_router = APIRouter(
 
 @currency_router.get("/exchange/")
 async def currency_exchange(
-    currency_1: Annotated[str, Query(..., alias="from")],
-    currency_2: Annotated[str, Query(..., alias="to")],
-    amount: float,
+    request: Annotated[CurrencyRequest, Query()],
 ) -> CurrencyResponse:
-    params = locals()
-    return ext_api_get_exchange(CurrencyRequest(**params))
+    return ext_api_get_exchange(request)
 
 
 @currency_router.get("/list/")

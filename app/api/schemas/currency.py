@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 
 ThreeLetterUppercase = Annotated[
@@ -9,15 +9,15 @@ ThreeLetterUppercase = Annotated[
 
 
 class CurrencyRequest(BaseModel):
-    # model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 
-    currency_1: ThreeLetterUppercase
-    currency_2: ThreeLetterUppercase
-    amount: float = Field(gt=0, default=1)
+    currency_1: Annotated[ThreeLetterUppercase, Field(..., alias="from")]
+    currency_2: Annotated[ThreeLetterUppercase, Field(..., alias="to")]
+    amount: Annotated[float, Field(gt=0, default=1)]
 
 
 class CurrencyResponse(CurrencyRequest):
-    result: float = Field(gt=0)
+    result: Annotated[float, Field(gt=0)]
 
 
 class CurrencyList(BaseModel):
