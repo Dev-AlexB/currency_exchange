@@ -29,6 +29,8 @@ class ExternalAPIHTTPError(HTTPException):
 
 class ExternalAPIKeyError(KeyError):
     def __init__(self, key, data_dict):
-        self.message = f"Ключ {key} не найден в JSON из внешнего API"
-        f"Ответ внешнего API: {data_dict}"
+        self.message = (
+            f"Ключ '{key}' не найден в JSON из внешнего API.\n"
+            f"Ответ внешнего API: {data_dict}"
+        )
         super().__init__(self.message)

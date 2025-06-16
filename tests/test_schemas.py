@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.schemas.currency import (
-    CurrencyList,
+    CurrencyAll,
     CurrencyRequest,
     CurrencyResponse,
 )
@@ -356,9 +356,15 @@ class TestCurrencySchemas:
                 None,
                 pytest.raises(ValidationError),
             ),
-            # ошибка валидации (ключ currencies не в том формате)
+            # ошибка валидации (значение по ключу currencies не в том формате)
             (
                 {"currencies": {"dollar": "US dollar", "EUR": "euro"}},
+                None,
+                pytest.raises(ValidationError),
+            ),
+            # ошибка валидации (словарь currencies пуст)
+            (
+                {"currencies": {}},
                 None,
                 pytest.raises(ValidationError),
             ),
@@ -369,11 +375,12 @@ class TestCurrencySchemas:
             "Error: not enough fields",
             "Error: currencies format not dict",
             "Error: currencies key wrong format",
+            "Error: currencies dict is empty",
         ],
     )
-    def test_currency_list(self, data, currencies, expectation):
+    def test_currency_all(self, data, currencies, expectation):
         with expectation:
-            currency_list_obj = CurrencyList(**data)
+            currency_list_obj = CurrencyAll(**data)
             assert currency_list_obj.currencies == currencies
 
 
@@ -420,7 +427,7 @@ class TestCurrencySchemas:
         ),
         (
             {"currencies": {"USD": "US dollar", "EUR": "euro"}},
-            CurrencyList,
+            CurrencyAll,
         ),
     ],
     ids=[
@@ -430,7 +437,7 @@ class TestCurrencySchemas:
         "Token",
         "CurrencyRequest",
         "CurrencyResponse",
-        "CurrencyList",
+        "CurrencyAll",
     ],
 )
 def test_schema_to_dict(data, schema):

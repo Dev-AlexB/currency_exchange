@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.api.schemas.currency import (
-    CurrencyList,
+    CurrencyAll,
     CurrencyRequest,
     CurrencyResponse,
 )
@@ -29,5 +29,5 @@ async def currency_exchange(
 
 
 @currency_router.get("/list/")
-async def currency_list() -> CurrencyList:
+async def currency_list() -> CurrencyAll:
     return ext_api_get_currencies()

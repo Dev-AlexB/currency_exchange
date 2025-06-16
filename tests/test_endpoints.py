@@ -8,7 +8,7 @@ from app.api.errors.exceptions import (
     InvalidUsernameException,
     UserUnauthorisedException,
 )
-from app.api.schemas.currency import CurrencyList, CurrencyResponse
+from app.api.schemas.currency import CurrencyAll, CurrencyResponse
 from app.api.schemas.users import User, UserCreate, UserInDB
 from app.core.security import get_username_from_token
 from main import app
@@ -270,13 +270,12 @@ class TestCurrency:
             assert response.json()["message"] == expected_data
         app.dependency_overrides = {}
 
-    @pytest.mark.problem
     @pytest.mark.parametrize(
         "mock_return, mock_side_effect, expected_status, expected_data",
         [
             # успешный запрос
             (
-                CurrencyList(currencies={"USD": "US dollar", "EUR": "euro"}),
+                CurrencyAll(currencies={"USD": "US dollar", "EUR": "euro"}),
                 None,
                 200,
                 {"currencies": {"USD": "US dollar", "EUR": "euro"}},

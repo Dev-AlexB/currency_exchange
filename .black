@@ -1,0 +1,11 @@
+[tool.black]
+line-length = 79
+target-version = ['py313']
+extend-exclude = '''
+    (venv,
+    .venv,
+    alembic,
+    docker,
+    .git,
+    __pycache__)
+'''

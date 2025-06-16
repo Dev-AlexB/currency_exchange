@@ -20,5 +20,5 @@ class CurrencyResponse(CurrencyRequest):
     result: Annotated[float, Field(gt=0)]
 
 
-class CurrencyList(BaseModel):
-    currencies: dict[ThreeLetterUppercase, str]
+class CurrencyAll(BaseModel):
+    currencies: Annotated[dict[ThreeLetterUppercase, str], Field(min_length=1)]

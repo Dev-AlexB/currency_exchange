@@ -15,7 +15,7 @@ def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
 
     message = f"Вызвано незадокументированное исключение {type(exc).__name__}."
-    # передать exc_info=exc, чтобы включить инфо об ошибке (fastapi сам кидает в консоль)
+    # передать exc_info=True, чтобы включить инфу об ошибке (fastapi сам кидает в консоль)
     logger.critical(message)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -87,22 +87,32 @@ def external_api_http_error_handler(
 ) -> JSONResponse:
     """Обрабатывает и логгирует ошибки внешнего API."""
 
-    message = (
-        f"Вызвано исключение {type(exc).__name__}."
-        f"Статус-код ответа внешнего API: {exc.status_code}. "
-        f"Текст ответа:\n{exc.detail}"
-    )
-    if exc.status_code == 402:
-        logger.error(message)
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "message": "Код валюты не найден. "
-                "Для проверки доступных кодов воспользуйтесь URL "
-                "currency/list"
-            },
+    base_message = f"Вызвано исключение {type(exc).__name__}."
+    if exc.__cause__:
+        exc_type = type(exc.__cause__)
+        logger.exception(
+            f"{base_message}\n"
+            f"Причина:\n"
+            f"Тип:{exc_type.__module__}.{exc_type.__name__}\n"
+            f"Сообщение: {exc.__cause__}"
         )
-    logger.critical(message)
+    else:
+        full_message = (
+            f"{base_message} "
+            f"Статус-код ответа внешнего API: {exc.status_code}. "
+            f"Текст ответа:\n{exc.detail}"
+        )
+        if exc.status_code == 402:
+            logger.error(full_message)
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "message": "Код валюты не найден. "
+                    "Для проверки доступных кодов воспользуйтесь URL "
+                    "currency/list"
+                },
+            )
+        logger.critical(full_message)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"message": "Проблема с ответом внешнего API"},
@@ -112,7 +122,7 @@ def external_api_http_error_handler(
 def external_api_key_error_handler(
     request: Request, exc: ExternalAPIKeyError
 ) -> JSONResponse:
-    message = f"Вызвано исключение {type(exc).__name__}: {exc}"
+    message = f"Вызвано исключение {type(exc).__name__}: {exc.message}"
     logger.critical(message)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
