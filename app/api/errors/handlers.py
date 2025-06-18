@@ -11,7 +11,7 @@ from app.api.errors.logger import logger
 def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Обрабатывает и логгирует все необработанные ошибки.
 
-    Обрабатывает ошибки не обработанные другими хэндлерамию
+    Обрабатывает ошибки, не обработанные другими хендлерами.
     """
 
     message = f"Вызвано незадокументированное исключение {type(exc).__name__}."
