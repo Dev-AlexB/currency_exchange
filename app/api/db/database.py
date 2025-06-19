@@ -19,7 +19,7 @@ class FakeDatabase(AbstractUserRepository):
     data = {
         "admin": {
             "username": "admin",
-            "password": "pass",
+            "password": "password",
             "email": "admin@mail.ru",
             "hashed_password": "$2b$12$yd.0JNLmiWgkgReH8W8zDOZecGLLyRGSNHM42Q.O468YRkt2fkAt6",
         },
