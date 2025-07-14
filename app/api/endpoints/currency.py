@@ -25,9 +25,9 @@ currency_router = APIRouter(
 async def currency_exchange(
     request: Annotated[CurrencyRequest, Query()],
 ) -> CurrencyResponse:
-    return ext_api_get_exchange(request)
+    return await ext_api_get_exchange(request)
 
 
 @currency_router.get("/list/")
 async def currency_list() -> CurrencyAll:
-    return ext_api_get_currencies()
+    return await ext_api_get_currencies()
