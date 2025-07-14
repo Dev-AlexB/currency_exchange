@@ -1,36 +1,64 @@
-from fastapi import HTTPException, status
+from typing import Optional
+
+from pydantic import EmailStr
 
 
-class InvalidUsernameException(HTTPException):
-    def __init__(self, name):
-        super().__init__(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Имя пользователя {name} занято. "
-            "Пожалуйста, используйте другое!",
+class CustomException(Exception):
+    def __init__(self, detail: str):
+        self.detail = detail
+        super().__init__(detail)
+
+
+class UniqueFieldException(CustomException):
+    MESSAGE_TEMPLATES = {
+        "username": "Имя пользователя '{value}' уже используется",
+        "email": "Email '{value}' уже используется",
+    }
+
+    def __init__(self, field: str, value: str | EmailStr):
+        self.field = field
+        self.value = value
+        self.detail = self._make_message()
+        super().__init__(str(self._make_message()))
+
+    def _make_message(self) -> str:
+        messages = {
+            "username": f"Имя пользователя '{self.value}' уже используется",
+            "email": f"Email '{self.value}' уже используется",
+        }
+        base_message = (
+            f"Поле '{self.field}' со значением '{self.value}'"
+            f" уже используется"
         )
+        return messages.get(self.field, base_message)
 
 
-class UserUnauthorisedException(HTTPException):
-    def __init__(self, detail=None):
-        super().__init__(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=detail or "Неверные учетные данные!",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+class AuthorizationException(CustomException):
+    headers = {"WWW-Authenticate": "Bearer"}
 
 
-class InvalidTokenException(UserUnauthorisedException):
-    pass
+class UserUnauthorisedException(AuthorizationException):
+    def __init__(self):
+        super().__init__("Неверные учетные данные!")
 
 
-class ExternalAPIHTTPError(HTTPException):
-    pass
+class InvalidTokenException(AuthorizationException):
+    def __init__(self, detail: str):
+        super().__init__(detail)
 
 
-class ExternalAPIKeyError(KeyError):
+class ExternalAPIHTTPError(CustomException):
+    def __init__(self, detail: str, status_code: Optional[int] = None):
+        self.status_code = status_code
+        super().__init__(detail)
+
+
+class ExternalAPIDataError(CustomException):
     def __init__(self, key, data_dict):
-        self.message = (
+        self.key = key
+        self.data_dict = data_dict
+        self.detail = (
             f"Ключ '{key}' не найден в JSON из внешнего API.\n"
             f"Ответ внешнего API: {data_dict}"
         )
-        super().__init__(self.message)
+        super().__init__(self.detail)
