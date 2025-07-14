@@ -14,9 +14,14 @@ class CurrencySettings(BaseModel):
     URL_EXCHANGE: str
 
 
+class DatabaseSettings(BaseModel):
+    URL: str
+
+
 class Settings(BaseSettings):
     JWT: JWTSettings
     CURRENCY: CurrencySettings
+    DATABASE: DatabaseSettings
 
     model_config = SettingsConfigDict(
         env_file=".env",

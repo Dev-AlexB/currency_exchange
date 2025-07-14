@@ -11,9 +11,9 @@ ThreeLetterUppercase = Annotated[
 class CurrencyRequest(BaseModel):
     model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 
-    currency_1: Annotated[ThreeLetterUppercase, Field(..., alias="from")]
-    currency_2: Annotated[ThreeLetterUppercase, Field(..., alias="to")]
-    amount: Annotated[float, Field(gt=0, default=1)]
+    currency_1: Annotated[ThreeLetterUppercase, Field(alias="from")]
+    currency_2: Annotated[ThreeLetterUppercase, Field(alias="to")]
+    amount: Annotated[float, Field(gt=0)] = 1
 
 
 class CurrencyResponse(CurrencyRequest):

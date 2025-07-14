@@ -41,7 +41,7 @@ def get_username_from_token(
             token, settings.JWT.SECRET_KEY, algorithms=[settings.JWT.ALGORITHM]
         )
         return payload.get("sub")
-    except jwt.ExpiredSignatureError:
-        raise InvalidTokenException(detail="Токен устарел")
-    except jwt.InvalidTokenError:
-        raise InvalidTokenException(detail="Ошибка чтения токена")
+    except jwt.ExpiredSignatureError as e:
+        raise InvalidTokenException(detail="Токен устарел") from e
+    except jwt.InvalidTokenError as e:
+        raise InvalidTokenException(detail="Ошибка чтения токена") from e
