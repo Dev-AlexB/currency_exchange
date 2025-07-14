@@ -5,6 +5,9 @@
 ![Tests](https://img.shields.io/badge/tests-pytest-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
+>⚠️ **Внимание:** Документация актуальна для [синхронной версии](
+> https://github.com/Dev-AlexB/currency_exchange/tree/SyncRoutes_FakeBase).
+
 ## 📚 Содержание
 
 - [Краткое описание](#-краткое-описание)
