@@ -1,4 +1,4 @@
-from typing import Self, runtime_checkable
+from typing import Protocol, Self, runtime_checkable
 
 from app.api.db.database import async_session_maker
 from app.api.repositories.user_repository import (
@@ -8,7 +8,7 @@ from app.api.repositories.user_repository import (
 
 
 @runtime_checkable
-class IUserUnitOfWork:
+class IUserUnitOfWork(Protocol):
     user_repo: IUserRepository
 
     async def __aenter__(self) -> Self: ...

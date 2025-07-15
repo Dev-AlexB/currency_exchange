@@ -1,9 +1,30 @@
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    Field,
+)
 
 
-pattern = r"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@$!%*?&])[A-Za-z\d@$!%*?&]+$"
+def validate_password(value: str) -> str:
+    allowed_specials = "!@$!%*?&"
+    if not any(c.isupper() for c in value):
+        raise ValueError("Пароль должен содержать заглавную букву")
+    if not any(c.islower() for c in value):
+        raise ValueError("Пароль должен содержать строчную букву")
+    if not any(c.isdigit() for c in value):
+        raise ValueError("Пароль должен содержать цифру")
+    if not any(c in allowed_specials for c in value):
+        raise ValueError(
+            f"Пароль должен содержать символ из набора {allowed_specials}"
+        )
+    if not all(c.isalnum() or c in allowed_specials for c in value):
+        raise ValueError("Пароль не должен содержать недопустимые символы")
+    return value
 
 
 def normalize(value: str) -> str:
@@ -19,7 +40,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: Annotated[
-        str, Field(min_length=8, max_length=50, pattern=pattern)
+        str,
+        Field(min_length=8, max_length=50),
+        AfterValidator(validate_password),
     ]
 
 

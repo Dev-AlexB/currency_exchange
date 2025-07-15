@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Инструкция по API</title>
+</head>
+<body>
+<h1 style="text-align: center;">Инструкция по API</h1>
+<h3>Документация.</h3>
+    <p>Документация доступна по следующим ссылкам:</p>
+    <p>
+        Swagger UI:
+        <a href="/docs">/docs</a>
+    </p>
+    <p>
+        ReDoc:
+        <a href="/redoc">/redoc</a>
+    </p>
+<h3>Для регистрации и аутентификации необходимо отправить POST запросы.</h3>
+    <p>
+        Ссылка для регистрации пользователя:
+        <a href="/auth/register/">/auth/register/</a>
+    </p>
+    <p>
+        Ссылка для аутентификации пользователя:
+        <a href="/auth/login/">/auth/login/</a>
+    </p>
+    <br>
+    <h3>Для получения списка валют и курса валют необходимо отправить GET запросы.</h3>
+    <p>
+        Ссылка для получения списка доступных валют:
+        <a href="/currency/list/">/currency/list/</a>
+    </p>
+    <p>
+        Пример ссылки для расчета обменных операций:
+        <a href="/currency/exchange/?from=USD&to=EUR&amount=1">
+            /currency/exchange/?from=USD&to=EUR&amount=1
+        </a>
+    </p>
+</body>
+</html>
