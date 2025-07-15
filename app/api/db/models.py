@@ -9,7 +9,9 @@ from app.core.security import get_password_hash
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = MappedColumn(BigInteger, primary_key=True, index=True)
+    id: Mapped[int] = MappedColumn(
+        BigInteger, primary_key=True, autoincrement=True, index=True
+    )
     username: Mapped[str] = MappedColumn(
         String(50), unique=True, nullable=False
     )

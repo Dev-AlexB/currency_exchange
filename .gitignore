@@ -7,3 +7,5 @@
 !/.isort.cfg
 !/.pre-commit-config.yaml
 !/.gitignore
+*.db
+*.sqlite3

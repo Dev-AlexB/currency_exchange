@@ -16,6 +16,7 @@ class CurrencySettings(BaseModel):
 
 class DatabaseSettings(BaseModel):
     URL: str
+    URL_SYNC: str
 
 
 class Settings(BaseSettings):
