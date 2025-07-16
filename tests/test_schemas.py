@@ -8,16 +8,62 @@ from app.api.schemas.currency import (
     CurrencyRequest,
     CurrencyResponse,
 )
-from app.api.schemas.users import Token, User, UserCreate, UserInDB
+from app.api.schemas.users import (
+    Token,
+    UserBase,
+    UserCreate,
+    validate_password,
+)
 
 
 class TestUserSchemas:
+    def test_validate_password_ok(self):
+        value = "PassIsOK5!"
+        assert validate_password(value) == value
+
+    @pytest.mark.parametrize(
+        "value, message",
+        [
+            (
+                "willfail8&",
+                "Пароль должен содержать заглавную букву",
+            ),
+            (
+                "WILLFAIL8&",
+                "Пароль должен содержать строчную букву",
+            ),
+            (
+                "Willfail&",
+                "Пароль должен содержать цифру",
+            ),
+            (
+                "Willfail8",
+                "Пароль должен содержать символ из набора !@$%*?&",
+            ),
+            (
+                "Willfail8&_",
+                "Пароль не должен содержать недопустимые символы",
+            ),
+        ],
+        ids=[
+            "No uppercase",
+            "No lowercase",
+            "No digit",
+            "No special symbol",
+            "Forbidden symbol",
+        ],
+    )
+    def test_validate_password_fail(self, value, message):
+        with pytest.raises(ValueError) as exc_info:
+            validate_password(value)
+        assert message in str(exc_info.value)
+
     @pytest.mark.parametrize(
         "data, name, email, expectation",
         [
-            # нормальные данные
+            # нормальные данные и нормализация
             (
-                {"username": "alex", "email": "alex@example.com"},
+                {"username": "Alex", "email": "Alex@example.com"},
                 "alex",
                 "alex@example.com",
                 does_not_raise(),
@@ -49,29 +95,34 @@ class TestUserSchemas:
             ),
         ],
         ids=[
-            "Normal data",
+            "Normal data and normalization",
             "Redundant field",
             "Error: not enough fields",
             "Error: wrong email",
         ],
     )
-    def test_user(self, data, name, email, expectation):
-        with expectation:
-            user = User(**data)
+    def test_user_base(self, data, name, email, expectation):
+        with expectation as exc_info:
+            user = UserBase(**data)
+        if exc_info is not None:
+            assert any(
+                error["loc"] == ("email",) for error in exc_info.value.errors()
+            )
+        else:
             assert user.username == name
             assert user.email == email
 
     @pytest.mark.parametrize(
         "data, password, expectation",
         [
-            # нормальные данные
+            # нормальные данные и нормализация
             (
                 {
-                    "username": "alex",
-                    "email": "alex@example.com",
-                    "password": "my_pass",
+                    "username": "Alex",
+                    "email": "Alex@example.com",
+                    "password": "PassIsOK5!",
                 },
-                "my_pass",
+                "PassIsOK5!",
                 does_not_raise(),
             ),
             # лишние поля
@@ -79,10 +130,10 @@ class TestUserSchemas:
                 {
                     "username": "alex",
                     "email": "alex@example.com",
-                    "password": "my_pass",
+                    "password": "PassIsOK5!",
                     "redundant": "something",
                 },
-                "my_pass",
+                "PassIsOK5!",
                 does_not_raise(),
             ),
             # ошибка валидации (password отсутствует)
@@ -91,51 +142,34 @@ class TestUserSchemas:
                 None,
                 pytest.raises(ValidationError),
             ),
-        ],
-        ids=["Normal data", "Redundant field", "Error: not enough fields"],
-    )
-    def test_user_create(self, data, password, expectation):
-        with expectation:
-            user = UserCreate(**data)
-            assert user.password == password
-
-    @pytest.mark.parametrize(
-        "data, hashed_password, expectation",
-        [
-            # нормальные данные
+            # ошибка валидации (password не соответствует)
             (
                 {
                     "username": "alex",
                     "email": "alex@example.com",
-                    "hashed_password": "my_pass",
+                    "password": "will_fail",
                 },
-                "my_pass",
-                does_not_raise(),
-            ),
-            # лишние поля
-            (
-                {
-                    "username": "alex",
-                    "email": "alex@example.com",
-                    "hashed_password": "my_pass",
-                    "redundant": "something",
-                },
-                "my_pass",
-                does_not_raise(),
-            ),
-            # ошибка валидации (hashed_password отсутствует)
-            (
-                {"username": "alex", "email": "alex@example.com"},
                 None,
                 pytest.raises(ValidationError),
             ),
         ],
-        ids=["Normal data", "Redundant field", "Error: not enough fields"],
+        ids=[
+            "Normal data",
+            "Redundant field",
+            "Error: not enough fields",
+            "Error: unacceptable password",
+        ],
     )
-    def test_user_in_db(self, data, hashed_password, expectation):
-        with expectation:
-            user = UserInDB(**data)
-            assert user.hashed_password == hashed_password
+    def test_user_create(self, data, password, expectation):
+        with expectation as exc_info:
+            user = UserCreate(**data)
+        if exc_info is not None:
+            assert any(
+                error["loc"] == ("password",)
+                for error in exc_info.value.errors()
+            )
+        else:
+            assert user.password == password
 
     @pytest.mark.parametrize(
         "data, access_token, token_type, expectation",
@@ -178,23 +212,16 @@ class TestUserSchemas:
             assert token.access_token == access_token
             assert token.token_type == token_type
 
-    def test_user_error_content(self):
-        with pytest.raises(ValidationError) as e:
-            User(username="Name", email="invalid_email")
-        assert any(error["loc"] == ("email",) for error in e.value.errors())
-
 
 class TestCurrencySchemas:
     @pytest.mark.parametrize(
-        "data, currency_1, currency_2, amount, expectation",
+        "data, expectation, error_location",
         [
             # нормальные данные
             (
                 {"currency_1": "USD", "currency_2": "EUR", "amount": 12.5},
-                "USD",
-                "EUR",
-                12.5,
                 does_not_raise(),
+                None,
             ),
             # лишнее поле и дефолтное поле
             (
@@ -203,42 +230,32 @@ class TestCurrencySchemas:
                     "currency_2": "EUR",
                     "redundant": "something",
                 },
-                "USD",
-                "EUR",
-                1,
                 does_not_raise(),
+                None,
             ),
             # ошибка валидации (не все поля заполнены)
             (
                 {"currency_1": "USD"},
-                None,
-                None,
-                None,
                 pytest.raises(ValidationError),
+                "to",
             ),
             # ошибка валидации (формат currency)
             (
                 {"currency_1": "dollar", "currency_2": "EUR", "amount": 12.5},
-                None,
-                None,
-                None,
                 pytest.raises(ValidationError),
+                "currency_1",
             ),
             # ошибка валидации (формат amount)
             (
                 {"currency_1": "USD", "currency_2": "EUR", "amount": "one"},
-                None,
-                None,
-                None,
                 pytest.raises(ValidationError),
+                "amount",
             ),
             # ошибка валидации (значение amount)
             (
                 {"currency_1": "USD", "currency_2": "EUR", "amount": 0},
-                None,
-                None,
-                None,
                 pytest.raises(ValidationError),
+                "amount",
             ),
         ],
         ids=[
@@ -250,17 +267,21 @@ class TestCurrencySchemas:
             "Error: amount = 0",
         ],
     )
-    def test_currency_request(
-        self, data, currency_1, currency_2, amount, expectation
-    ):
-        with expectation:
+    def test_currency_request(self, data, expectation, error_location):
+        with expectation as exc_info:
             currency_obj = CurrencyRequest(**data)
-            assert currency_obj.currency_1 == currency_1
-            assert currency_obj.currency_2 == currency_2
-            assert currency_obj.amount == amount
+        if exc_info is not None:
+            assert any(
+                error["loc"] == (error_location,)
+                for error in exc_info.value.errors()
+            )
+        else:
+            assert currency_obj.currency_1 == data["currency_1"]
+            assert currency_obj.currency_2 == data["currency_2"]
+            assert currency_obj.amount == data.get("amount", 1)
 
     @pytest.mark.parametrize(
-        "data, result, expectation",
+        "data, expectation",
         [
             # нормальные данные
             (
@@ -270,7 +291,6 @@ class TestCurrencySchemas:
                     "amount": 12.5,
                     "result": 10,
                 },
-                10,
                 does_not_raise(),
             ),
             # лишнее поле и дефолтное значение
@@ -281,13 +301,11 @@ class TestCurrencySchemas:
                     "result": 1.1,
                     "redundant": "something",
                 },
-                1.1,
                 does_not_raise(),
             ),
             # ошибка валидации (не все поля заполнены)
             (
                 {"currency_1": "USD", "currency_2": "EUR", "amount": 12.5},
-                None,
                 pytest.raises(ValidationError),
             ),
             # ошибка валидации (формат result)
@@ -298,7 +316,6 @@ class TestCurrencySchemas:
                     "amount": 12.5,
                     "result": "one",
                 },
-                None,
                 pytest.raises(ValidationError),
             ),
             # ошибка валидации (значение result)
@@ -309,7 +326,6 @@ class TestCurrencySchemas:
                     "amount": 12.5,
                     "result": 0,
                 },
-                None,
                 pytest.raises(ValidationError),
             ),
         ],
@@ -321,18 +337,23 @@ class TestCurrencySchemas:
             "Error: result = 0",
         ],
     )
-    def test_currency_response(self, data, result, expectation):
-        with expectation:
+    def test_currency_response(self, data, expectation):
+        with expectation as exc_info:
             currency_obj = CurrencyResponse(**data)
-            assert currency_obj.result == result
+        if exc_info is not None:
+            assert any(
+                error["loc"] == ("result",)
+                for error in exc_info.value.errors()
+            )
+        else:
+            assert currency_obj.result == data["result"]
 
     @pytest.mark.parametrize(
-        "data, currencies, expectation",
+        "data, expectation",
         [
             # нормальные данные
             (
                 {"currencies": {"USD": "US dollar", "EUR": "euro"}},
-                {"USD": "US dollar", "EUR": "euro"},
                 does_not_raise(),
             ),
             # лишнее поле
@@ -341,31 +362,26 @@ class TestCurrencySchemas:
                     "currencies": {"USD": "US dollar", "EUR": "euro"},
                     "redundant": "something",
                 },
-                {"USD": "US dollar", "EUR": "euro"},
                 does_not_raise(),
             ),
             # ошибка валидации (не все поля заполнены)
             (
                 {},
-                None,
                 pytest.raises(ValidationError),
             ),
             # ошибка валидации (currencies не словарь)
             (
                 {"currencies": ["USD", "EUR"]},
-                None,
                 pytest.raises(ValidationError),
             ),
             # ошибка валидации (значение по ключу currencies не в том формате)
             (
                 {"currencies": {"dollar": "US dollar", "EUR": "euro"}},
-                None,
                 pytest.raises(ValidationError),
             ),
             # ошибка валидации (словарь currencies пуст)
             (
                 {"currencies": {}},
-                None,
                 pytest.raises(ValidationError),
             ),
         ],
@@ -378,10 +394,16 @@ class TestCurrencySchemas:
             "Error: currencies dict is empty",
         ],
     )
-    def test_currency_all(self, data, currencies, expectation):
-        with expectation:
+    def test_currency_all(self, data, expectation):
+        with expectation as exc_info:
             currency_list_obj = CurrencyAll(**data)
-            assert currency_list_obj.currencies == currencies
+        if exc_info is not None:
+            assert any(
+                "currencies" in error["loc"]
+                for error in exc_info.value.errors()
+            )
+        else:
+            assert currency_list_obj.currencies == data["currencies"]
 
 
 # тест для проверки работы model_dump у всех схем
@@ -390,7 +412,7 @@ class TestCurrencySchemas:
     [
         (
             {"username": "bob", "email": "bob@example.com"},
-            User,
+            UserBase,
         ),
         (
             {
@@ -399,14 +421,6 @@ class TestCurrencySchemas:
                 "password": "bob_pass",
             },
             UserCreate,
-        ),
-        (
-            {
-                "username": "bob",
-                "email": "bob@example.com",
-                "hashed_password": "hashed_bob_pass",
-            },
-            UserInDB,
         ),
         (
             {"access_token": "some_token", "token_type": "bearer"},

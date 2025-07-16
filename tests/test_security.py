@@ -86,8 +86,8 @@ def test_create_jwt_token():
 )
 def test_get_username_from_token(payload, secret, expectation, error_detail):
     token = make_token(payload, secret)
-    with expectation as error:
+    with expectation as exc_info:
         result = get_username_from_token(token)
         assert result == payload["sub"]
-        if error_detail:
-            assert str(error) == error_detail
+        if exc_info is not None:
+            assert str(exc_info.value) == error_detail

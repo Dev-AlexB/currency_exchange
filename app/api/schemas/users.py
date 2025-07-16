@@ -3,7 +3,6 @@ from typing import Annotated
 from pydantic import (
     AfterValidator,
     BaseModel,
-    BeforeValidator,
     ConfigDict,
     EmailStr,
     Field,
@@ -11,7 +10,7 @@ from pydantic import (
 
 
 def validate_password(value: str) -> str:
-    allowed_specials = "!@$!%*?&"
+    allowed_specials = "!@$%*?&"
     if not any(c.isupper() for c in value):
         raise ValueError("Пароль должен содержать заглавную букву")
     if not any(c.islower() for c in value):
@@ -32,8 +31,8 @@ def normalize(value: str) -> str:
 
 
 class UserBase(BaseModel):
-    username: Annotated[str, BeforeValidator(normalize)]
-    email: Annotated[EmailStr, BeforeValidator(normalize)]
+    username: Annotated[str, AfterValidator(normalize)]
+    email: Annotated[EmailStr, AfterValidator(normalize)]
 
     model_config = ConfigDict(from_attributes=True)
 
