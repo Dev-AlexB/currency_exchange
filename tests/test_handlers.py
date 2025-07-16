@@ -6,18 +6,19 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError
 
 from app.api.errors.exceptions import (
+    ExternalAPIDataError,
     ExternalAPIHTTPError,
-    ExternalAPIKeyError,
     InvalidTokenException,
-    InvalidUsernameException,
+    UniqueFieldException,
     UserUnauthorisedException,
 )
 from app.api.errors.handlers import (
+    authorization_exception_handler,
+    external_api_data_error_handler,
     external_api_http_error_handler,
-    external_api_key_error_handler,
     global_exception_handler,
-    http_exception_handler,
     request_validation_error_handler,
+    unique_field_exception_handler,
     validation_error_handler,
 )
 
@@ -31,33 +32,6 @@ def test_global_exception_handler(caplog):
     body_dict = json.loads(response.body)
     assert body_dict == {"message": "Внутренняя ошибка сервера."}
     assert "ValueError" in caplog.text
-
-
-@pytest.mark.parametrize(
-    "exception, exc_name",
-    [
-        (
-            InvalidUsernameException("occupied_username"),
-            "InvalidUsernameException",
-        ),
-        (UserUnauthorisedException(), "UserUnauthorisedException"),
-        (InvalidTokenException("Токен устарел"), "InvalidTokenException"),
-    ],
-    ids=[
-        "InvalidUsernameException",
-        "UserUnauthorisedException",
-        "InvalidTokenException",
-    ],
-)
-def test_http_exception_handler(caplog, exception, exc_name):
-    request = Request(scope={"type": "http"})
-    exc = exception
-    with caplog.at_level("ERROR"):
-        response = http_exception_handler(request, exc)
-    assert response.status_code == exception.status_code
-    body_dict = json.loads(response.body)
-    assert exception.detail in body_dict["message"]
-    assert exc_name in caplog.text
 
 
 def test_request_validation_error_handler(caplog):
@@ -75,12 +49,9 @@ def test_request_validation_error_handler(caplog):
         response = request_validation_error_handler(request, exc)
     assert response.status_code == 422
     body_dict = json.loads(response.body)
-    assert (
-        body_dict["message"]
-        == "Ошибка валидации отправленных клиентом данных."
-    )
+    assert body_dict["message"] == "Ошибка валидации данных клиента."
     assert body_dict["errors"] == errors
-    assert body_dict["body"] == str(exc.body)
+    assert json.loads(body_dict["body"]) == exc.body
     assert "RequestValidationError" in caplog.text
     assert "field required" in caplog.text
     assert str(exc.body) in caplog.text
@@ -92,7 +63,7 @@ def test_validation_error_handler(caplog):
 
     request = Request(scope={"type": "http"})
     try:
-        DummyModel(name=123)
+        DummyModel(name=123)  # noqa: тут специально name некорректного типа
     except ValidationError as exc:
         with caplog.at_level("CRITICAL"):
             response = validation_error_handler(request, exc)
@@ -151,7 +122,7 @@ def test_external_api_http_error_handler(
     log_level,
 ):
     request = Request(scope={"type": "http"})
-    exc = ExternalAPIHTTPError(status_code=status_code, detail=detail)
+    exc = ExternalAPIHTTPError(detail=detail, status_code=status_code)
     if cause:
         exc.__cause__ = cause
     with caplog.at_level("DEBUG"):
@@ -165,17 +136,69 @@ def test_external_api_http_error_handler(
         assert log_level in caplog.text
 
 
-def test_external_api_key_error_handler(caplog):
+def test_external_api_data_error_handler(caplog):
     request = Request(scope={"type": "http"})
     key = "currencies"
     data_dict = {"some": "data"}
-    exc = ExternalAPIKeyError(key=key, data_dict=data_dict)
+    exc = ExternalAPIDataError(key=key, data_dict=data_dict)
     with caplog.at_level("CRITICAL"):
-        response = external_api_key_error_handler(request, exc)
+        response = external_api_data_error_handler(request, exc)
     assert response.status_code == 500
     body_dict = json.loads(response.body)
 
     assert body_dict["message"] == "Проблема с ответом внешнего API"
-    assert "ExternalAPIKeyError" in caplog.text
+    assert "ExternalAPIDataError" in caplog.text
     assert key in caplog.text
     assert str(data_dict) in caplog.text
+
+
+def test_unique_field_exception_handler(caplog):
+    request = Request(scope={"type": "http"})
+    field = "username"
+    value = "used_name"
+    exc = UniqueFieldException(field, value)
+    with caplog.at_level("ERROR"):
+        response = unique_field_exception_handler(request, exc)
+    body_dict = json.loads(response.body)
+    assert response.status_code == 400
+    assert body_dict["message"] == (
+        f"Имя пользователя '{value}' уже используется"
+    )
+
+
+@pytest.mark.parametrize(
+    "exc_type, detail, cause",
+    [
+        (
+            UserUnauthorisedException,
+            None,
+            None,
+        ),
+        (
+            InvalidTokenException,
+            "Токен устарел",
+            Exception("Signature expired"),
+        ),
+    ],
+    ids=[
+        "UserUnauthorisedException",
+        "InvalidTokenException",
+    ],
+)
+def test_authorization_exception_handler(caplog, exc_type, detail, cause):
+    request = Request(scope={"type": "http"})
+    exc = exc_type(detail=detail) if detail else exc_type()
+    if cause:
+        exc.__cause__ = cause
+    with caplog.at_level("ERROR"):
+        response = authorization_exception_handler(request, exc)
+    body_dict = json.loads(response.body)
+    assert response.status_code == 401
+    assert body_dict["message"] == detail or "Неверные учетные данные!"
+    assert response.headers.get("www-authenticate") == "Bearer"
+    if cause:
+        assert "Причина" in caplog.text
+    if detail:
+        assert detail in caplog.text
+    else:
+        assert "Неверные учетные данные!" in caplog.text
