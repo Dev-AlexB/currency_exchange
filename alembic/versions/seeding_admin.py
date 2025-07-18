@@ -13,7 +13,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 users_table = sa.table(
     "users",
-    sa.column("id", sa.BigInteger),
+    sa.column("id", sa.Integer),
     sa.column("username", sa.String),
     sa.column("email", sa.String),
     sa.column("hashed_password", sa.String),
