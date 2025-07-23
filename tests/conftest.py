@@ -1,19 +1,34 @@
-import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from main import app
-
-
-@pytest.fixture
-def sync_client():
-    return TestClient(app)
+from app.api.db.database import Base
+from app.api.db.models import User
+from app.core.security import get_password_hash
 
 
-@pytest_asyncio.fixture(scope="session")
-async def async_client():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as async_client:
-        yield async_client
+DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest_asyncio.fixture
+async def async_session():
+    engine = create_async_engine(DATABASE_URL, echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with async_session_factory() as session:
+        yield session
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def setup_test_db(async_session):
+    for table in reversed(Base.metadata.sorted_tables):
+        await async_session.execute(table.delete())
+    await async_session.commit()
+    user = User(
+        username="existing_user",
+        email="existing@example.com",
+        hashed_password=get_password_hash("Password1!"),
+    )
+    async_session.add(user)
+    await async_session.commit()

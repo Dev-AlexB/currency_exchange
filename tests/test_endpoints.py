@@ -1,176 +1,140 @@
+import jwt
 import pytest
-from fastapi.exceptions import RequestValidationError, ResponseValidationError
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from pytest_mock import MockerFixture
 
-from app.api.errors.exceptions import (
-    ExternalAPIHTTPError,
-    ExternalAPIKeyError,
-    InvalidUsernameException,
-    UserUnauthorisedException,
-)
-from app.api.schemas.currency import CurrencyAll, CurrencyResponse
-from app.api.schemas.users import User, UserCreate, UserInDB
+from app.api.errors.exceptions import ExternalAPIHTTPError
+from app.core.config import settings
 from app.core.security import get_username_from_token
 from main import app
 
 
+@pytest_asyncio.fixture
+async def async_client(mocker, async_session):
+    mocker.patch(
+        "app.api.db.UoW.async_session_maker", return_value=async_session
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        yield client
+
+
+@pytest.fixture(scope="class")
+def token_check():
+    app.dependency_overrides[get_username_from_token] = lambda: "valid_user"
+    yield
+    app.dependency_overrides = {}
+
+
 # набор тестов маршрутов авторизации и регистрации
+@pytest.mark.usefixtures("setup_test_db")
 class TestUsers:
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "input_data, mock_return, mock_side_effect, "
-        "expected_status, expected_message, expected_username",
+        "input_data, expected_status, expected_message",
         [
-            # Успешная регистрация
             (
                 {
-                    "username": "valid_name",
-                    "email": "valid@email.com",
-                    "password": "valid_pass",
+                    "username": "new_user",
+                    "email": "new@example.com",
+                    "password": "ThisPassIsOK8&",
                 },
-                User(username="valid_name", email="valid@email.com"),
-                None,
                 201,
-                "Пользователь valid_name успешно создан.",
-                "valid_name",
+                "Пользователь new_user успешно создан.",
             ),
-            # Пользователь уже существует
             (
                 {
-                    "username": "admin",
-                    "email": "admin@mail.ru",
-                    "password": "pass",
+                    "username": "existing_user",
+                    "email": "new@example.com",
+                    "password": "ThisPassIsOK8&",
                 },
-                None,
-                InvalidUsernameException("admin"),
                 400,
-                "Имя пользователя admin занято.",
-                None,
+                "Имя пользователя 'existing_user' уже используется",
             ),
-            # Ошибка валидации (не хватает полей)
             (
-                {"username": "valid_name"},
-                None,
-                RequestValidationError(
-                    errors=[
-                        "some error",
-                    ]
-                ),
+                {
+                    "username": "new_user",
+                    "email": "existing@example.com",
+                    "password": "ThisPassIsOK8&",
+                },
+                400,
+                "Email 'existing@example.com' уже используется",
+            ),
+            (
+                {"username": "new_user", "password": "ThisPassIsOK8&"},
                 422,
-                "Ошибка валидации отправленных клиентом данных.",
-                None,
+                "Ошибка валидации данных клиента.",
             ),
         ],
         ids=[
             "Successful registration",
             "Username already exists",
+            "Email already exists",
             "Validation error",
         ],
     )
-    def test_reg(
-        self,
-        mocker: MockerFixture,
-        client,
-        input_data,
-        mock_return,
-        mock_side_effect,
-        expected_status,
-        expected_message,
-        expected_username,
+    async def test_reg(
+        self, async_client, input_data, expected_status, expected_message
     ):
-        mock = mocker.patch(
-            "app.api.db.services.UserService.register_user",
-            return_value=mock_return,
-            side_effect=mock_side_effect,
-        )
-        response = client.post("/auth/register", json=input_data)
+        response = await async_client.post("/auth/register/", json=input_data)
         assert response.status_code == expected_status
-        assert expected_message in response.json()["message"]
-        if expected_username:
-            assert response.json()["details"]["username"] == expected_username
-            mock.assert_called_once_with(UserCreate(**input_data))
+        assert response.json()["message"] == expected_message
 
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "input_data, mock_return_user, mock_side_effect, mock_return_token, "
-        "expected_status, expected_data",
+        "input_data, expected_status, expected_message_or_username",
         [
-            # успешное получение токена
             (
-                {"username": "valid_user", "password": "valid_pass"},
-                UserInDB(
-                    username="valid_user",
-                    email="valid@email.com",
-                    hashed_password="valid_pass",
-                ),
-                None,
-                "valid_token",
+                {"username": "existing_user", "password": "Password1!"},
                 200,
-                {"access_token": "valid_token", "token_type": "bearer"},
+                "existing_user",
             ),
-            # провал аутентификации
             (
-                {"username": "valid_user", "password": "invalid_pass"},
-                None,
-                UserUnauthorisedException(),
-                None,
+                {"username": "existing_user", "password": "InvalidPassword1!"},
                 401,
-                {"message": "Ошибка 401 - Неверные учетные данные!"},
+                "Неверные учетные данные!",
             ),
-            # ошибка валидации (не все поля переданы)
             (
-                {"username": "valid_user"},
-                None,
-                None,
-                None,
+                {
+                    "username": "existing_user",
+                },
                 422,
-                None,
+                "Ошибка валидации данных клиента.",
             ),
         ],
         ids=["Successful login", "Authentication failure", "Validation error"],
     )
-    def test_login(
+    async def test_login(
         self,
-        mocker: MockerFixture,
-        client,
+        async_client,
         input_data,
-        mock_return_user,
-        mock_side_effect,
-        mock_return_token,
         expected_status,
-        expected_data,
+        expected_message_or_username,
     ):
-        mock_authenticate_user = mocker.patch(
-            "app.api.db.services.UserService.authenticate_user",
-            return_value=mock_return_user,
-            side_effect=mock_side_effect,
-        )
-        mock_create_jwt_token = mocker.patch(
-            "app.api.endpoints.users.create_jwt_token",
-            return_value=mock_return_token,
-        )
-        response = client.post(
+        response = await async_client.post(
             "/auth/login/",
             data=input_data,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         assert response.status_code == expected_status
-        if expected_data:
-            assert response.json() == expected_data
-        if "password" in input_data and "username" in input_data:
-            mock_authenticate_user.assert_called_once_with(
-                input_data["username"], input_data["password"]
+        if "access_token" in response.json():
+            token = response.json()["access_token"]
+            payload = jwt.decode(
+                token,
+                settings.JWT.SECRET_KEY,
+                algorithms=[settings.JWT.ALGORITHM],
             )
+            assert payload.get("sub") == expected_message_or_username
         else:
-            mock_authenticate_user.assert_not_called()
-        if mock_return_token:
-            mock_create_jwt_token.assert_called_once_with(
-                {"sub": mock_return_user.username}
-            )
-        else:
-            mock_create_jwt_token.assert_not_called()
+            assert response.json()["message"] == expected_message_or_username
 
 
 # набор тестов маршрутов обмена валюты и списка валют
+@pytest.mark.usefixtures("token_check")
 class TestCurrency:
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "query_string, mock_return, mock_side_effect, "
         "expected_status, expected_data",
@@ -178,9 +142,7 @@ class TestCurrency:
             # успешный запрос
             (
                 "?from=USD&to=EUR",
-                CurrencyResponse(
-                    currency_1="USD", currency_2="EUR", amount=1, result=0.9
-                ),
+                {"result": 0.9},
                 None,
                 200,
                 {
@@ -193,18 +155,13 @@ class TestCurrency:
             # лишнее поле
             (
                 "?from=USD&to=EUR&amount=10&field=something",
-                CurrencyResponse(
-                    currency_1="USD",
-                    currency_2="EUR",
-                    amount=9,
-                    result=8.1,
-                ),
+                {"result": 8.1},
                 None,
                 200,
                 {
                     "from": "USD",
                     "to": "EUR",
-                    "amount": 9,
+                    "amount": 10,
                     "result": 8.1,
                 },
             ),
@@ -217,11 +174,11 @@ class TestCurrency:
                 "Код валюты не найден. Для проверки доступных "
                 "кодов воспользуйтесь URL currency/list",
             ),
-            # ошибка обработки данных из внешнего API
+            # ошибка обработки данных из внешнего API (ключ result отсутствует)
             (
                 "?from=USD&to=EUR",
+                {"outcome": 0.9},
                 None,
-                ExternalAPIKeyError(key="result", data_dict={"outcome": 0.9}),
                 500,
                 "Проблема с ответом внешнего API",
             ),
@@ -231,7 +188,7 @@ class TestCurrency:
                 None,
                 None,
                 422,
-                "Ошибка валидации отправленных клиентом данных.",
+                "Ошибка валидации данных клиента.",
             ),
         ],
         ids=[
@@ -242,40 +199,36 @@ class TestCurrency:
             "Validation error",
         ],
     )
-    def test_currency_exchange(
+    async def test_currency_exchange(
         self,
         mocker: MockerFixture,
-        client,
+        async_client,
         query_string,
         mock_return,
         mock_side_effect,
         expected_status,
         expected_data,
     ):
-        app.dependency_overrides[get_username_from_token] = (
-            lambda: "valid_user"
-        )
-
         mocker.patch(
-            "app.api.endpoints.currency.ext_api_get_exchange",
+            "app.api.utils.external_api.ext_api_request",
+            new_callable=mocker.AsyncMock,
             return_value=mock_return,
             side_effect=mock_side_effect,
-            autospec=True,
         )
-        response = client.get(f"/currency/exchange/{query_string}")
+        response = await async_client.get(f"/currency/exchange/{query_string}")
         assert response.status_code == expected_status
-        if mock_return:
+        if expected_status == 200:
             assert response.json() == expected_data
         else:
             assert response.json()["message"] == expected_data
-        app.dependency_overrides = {}
 
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "mock_return, mock_side_effect, expected_status, expected_data",
         [
             # успешный запрос
             (
-                CurrencyAll(currencies={"USD": "US dollar", "EUR": "euro"}),
+                {"currencies": {"USD": "US dollar", "EUR": "euro"}},
                 None,
                 200,
                 {"currencies": {"USD": "US dollar", "EUR": "euro"}},
@@ -283,30 +236,23 @@ class TestCurrency:
             # ошибка внешнего API
             (
                 None,
-                ExternalAPIHTTPError(status_code=402, detail="text"),
-                400,
-                {
-                    "message": "Код валюты не найден. "
-                    "Для проверки доступных кодов "
-                    "воспользуйтесь URL currency/list"
-                },
+                ExternalAPIHTTPError(status_code=404, detail="Uh-oh"),
+                500,
+                {"message": "Проблема с ответом внешнего API"},
             ),
             # ошибка обработки данных из внешнего API
             (
+                {"USD": "US dollar", "EUR": "euro"},
                 None,
-                ExternalAPIKeyError(
-                    key="currencies",
-                    data_dict={"USD": "US dollar", "EUR": "euro"},
-                ),
                 500,
                 {"message": "Проблема с ответом внешнего API"},
             ),
             # ошибка валидации
             (
+                {"currencies": {}},
                 None,
-                ResponseValidationError(errors=["some_error"]),
                 500,
-                {"message": "Внутренняя ошибка сервера."},
+                {"message": "Проблема с ответом внешнего API"},
             ),
         ],
         ids=[
@@ -316,24 +262,21 @@ class TestCurrency:
             "Validation error",
         ],
     )
-    def test_currency_list(
+    async def test_currency_list(
         self,
         mocker: MockerFixture,
-        client,
+        async_client,
         mock_return,
         mock_side_effect,
         expected_status,
         expected_data,
     ):
-        app.dependency_overrides[get_username_from_token] = (
-            lambda: "valid_user"
-        )
         mocker.patch(
-            "app.api.endpoints.currency.ext_api_get_currencies",
+            "app.api.utils.external_api.ext_api_request",
+            new_callable=mocker.AsyncMock,
             return_value=mock_return,
             side_effect=mock_side_effect,
         )
-        response = client.get("/currency/list/")
+        response = await async_client.get("/currency/list/")
         assert response.status_code == expected_status
         assert response.json() == expected_data
-        app.dependency_overrides = {}

@@ -5,9 +5,6 @@
 ![Tests](https://img.shields.io/badge/tests-pytest-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
->⚠️ **Внимание:** Документация актуальна для [синхронной версии](
-> https://github.com/Dev-AlexB/currency_exchange/tree/SyncRoutes_FakeBase).
-> Тесты на данный момент не работают (предназначены для синхронной версии).
 ## 📚 Содержание
 
 - [Краткое описание](#-краткое-описание)
@@ -48,19 +45,19 @@ RESTful API на FastAPI для расчета обменных операций
   - Подключение к внешнему API
   - Контроль ошибок внешнего API, с предоставлением пользователю кастомных 
 сообщений об ошибках
-  - ~~Асинхронные HTTP-запросы через `httpx`~~
+  - Асинхронные HTTP-запросы через `httpx`
 
 - ⚙️ **Организованная архитектура**
   - Отделение логики, схем, ошибок, utils
   - Pydantic-схемы для валидации
-  - Доступ к **фейковой** базе данных через сервис и репозиторий
+  - Доступ к SQLite базе данных через сервис и репозиторий
   - Доступ к константам через файл конфигурации с использованием 
 `pydantic.BaseSettings`
   - Кастомные ошибки и хендлеры
-  - Логгирование всех ошибок в консоль
+  - Логирование всех ошибок в консоль
 
 - 🧪 **Тестирование**
-  - Покрытие `pytest` + ~~`httpx.AsyncClient`~~ `TestClient`
+  - Покрытие `pytest` + `httpx.AsyncClient`
   - Unit-тестами покрыт весь основной функционал, в том числе сервисы, 
 репозитории, схемы Pydantic, запросы к внешнему API, логика авторизации,
 кастомные ошибки и хэндлеры
@@ -69,7 +66,7 @@ RESTful API на FastAPI для расчета обменных операций
   - Тестирование как успешных вызовов, так и ошибок
   - Использование параметризованных тестов
   - Моки зависимостей через `dependency_overrides` и `pytest-mock` 
-  - В общей сложности 93 теста (покрытие 99% по pytest-cov)
+  - В общей сложности 109 тестов (покрытие 97% по pytest-cov)
 
 - 🧩 **Автоматизация и стиль**
   - `pre-commit`, `black`, `flake8`, `isort`
@@ -103,40 +100,52 @@ uvicorn main:app --reload  # или просто запустить .\main.py
 ```bash
 ├── app
 │   ├── api
-│   │   ├── db                    # Работа с базой данных (фэйковой)
+│   │   ├── db                        # Работа с базой данных
 │   │   │   ├── database.py       
-│   │   │   └── services.py
-│   │   ├── endpoints             # Эндпоинты FastAPI
+│   │   │   ├── models.py       
+│   │   │   └── UoW.py
+│   │   ├── endpoints                 # Эндпоинты FastAPI
 │   │   │   ├── currency.py
 │   │   │   └── users.py
-│   │   ├── errors                # Обработка ошибок и логгирование
+│   │   ├── errors                    # Обработка ошибок и логирование
 │   │   │   ├── exceptions.py
 │   │   │   ├── handlers.py
 │   │   │   └── logger.py
-│   │   ├── schemas               # Модели Pydantic
+│   │   ├── repositories              # Репозитории
+│   │   │   ├── alchemy_repository.py
+│   │   │   └── user_repository.py
+│   │   ├── schemas                   # Модели Pydantic
 │   │   │   ├── currency.py
 │   │   │   └── users.py
-│   │   └── utils                 # Вспомогательные функции
+│   │   ├── services                  # Сервисы (бизнес-логика)
+│   │   │    └── user_service.py
+│   │   └── utils                     # Вспомогательные функции
 │   │       └── external_api.py
-│   └── core                      # Конфигурация, безопасность
+│   └── core                          # Конфигурация, безопасность
 │       ├── config.py
 │       └── security.py
-├── tests                         # Pytest тесты
+├── tests                             # Pytest тесты
 │   ├── conftest.py
-│   ├── test_database.py
+│   ├── test_UoW.py
 │   ├── test_endpoints.py
 │   ├── test_exceptions.py
 │   ├── test_ext_api.py
 │   ├── test_handlers.py
+│   ├── test_models.py
 │   ├── test_schemas.py
 │   ├── test_security.py
-│   └── test_services.py
-├── .env                          # Переменные окружения
+│   ├── test_user_repository.py
+│   └── test_user_service.py
+├── .env                              # Переменные окружения
+├── .gitignore                          
+├── LICENSE                          
 ├── README.md
-├── env_template                  # Шаблон файла .env
-├── main.py                       # Точка входа
-├── pytest.ini                    # Настройки pytest
-└── requirements.txt              # Зависимости
+├── alembic.ini                       # Настройки alembic
+├── env_template                      # Шаблон файла .env
+├── index.html                        # html главной страницы
+├── main.py                           # Точка входа
+├── pytest.ini                        # Настройки pytest
+└── requirements.txt                  # Зависимости
 ```
 
 ## 📌 Переменные окружения
