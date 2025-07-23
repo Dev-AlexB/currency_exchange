@@ -10,11 +10,6 @@ class CustomException(Exception):
 
 
 class UniqueFieldException(CustomException):
-    MESSAGE_TEMPLATES = {
-        "username": "Имя пользователя '{value}' уже используется",
-        "email": "Email '{value}' уже используется",
-    }
-
     def __init__(self, field: str, value: str | EmailStr):
         self.field = field
         self.value = value
@@ -54,11 +49,6 @@ class ExternalAPIHTTPError(CustomException):
 
 
 class ExternalAPIDataError(CustomException):
-    def __init__(self, key, data_dict):
-        self.key = key
-        self.data_dict = data_dict
-        self.detail = (
-            f"Ключ '{key}' не найден в JSON из внешнего API.\n"
-            f"Ответ внешнего API: {data_dict}"
-        )
-        super().__init__(self.detail)
+    def __init__(self, detail, ext_api_data):
+        self.ext_api_data = ext_api_data
+        super().__init__(detail)

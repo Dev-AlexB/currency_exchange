@@ -51,7 +51,6 @@ def test_request_validation_error_handler(caplog):
     body_dict = json.loads(response.body)
     assert body_dict["message"] == "Ошибка валидации данных клиента."
     assert body_dict["errors"] == errors
-    assert json.loads(body_dict["body"]) == exc.body
     assert "RequestValidationError" in caplog.text
     assert "field required" in caplog.text
     assert str(exc.body) in caplog.text
@@ -138,18 +137,19 @@ def test_external_api_http_error_handler(
 
 def test_external_api_data_error_handler(caplog):
     request = Request(scope={"type": "http"})
-    key = "currencies"
-    data_dict = {"some": "data"}
-    exc = ExternalAPIDataError(key=key, data_dict=data_dict)
+    detail = "Ключ 'currencies' не найде в ответе внешнего API"
+    ext_api_data = {"some": "data"}
+    exc = ExternalAPIDataError(detail=detail, ext_api_data=ext_api_data)
+    exc.__cause__ = Exception("UH-oh!")
     with caplog.at_level("CRITICAL"):
         response = external_api_data_error_handler(request, exc)
     assert response.status_code == 500
     body_dict = json.loads(response.body)
-
     assert body_dict["message"] == "Проблема с ответом внешнего API"
     assert "ExternalAPIDataError" in caplog.text
-    assert key in caplog.text
-    assert str(data_dict) in caplog.text
+    assert detail in caplog.text
+    assert str(ext_api_data) in caplog.text
+    assert repr(exc.__cause__) in caplog.text
 
 
 def test_unique_field_exception_handler(caplog):

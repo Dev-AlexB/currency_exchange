@@ -31,7 +31,10 @@ class UserService:
             return UserReturn.model_validate(model)
 
     async def authenticate_user(self, username: str, password: str) -> str:
-        user: User = await self.uow.user_repo.get_by_username(username.lower())
+        async with self.uow:
+            user: User = await self.uow.user_repo.get_by_username(
+                username.lower()
+            )
         if user and verify_password(password, user.hashed_password):
             return user.username
         raise UserUnauthorisedException()

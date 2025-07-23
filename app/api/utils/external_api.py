@@ -1,6 +1,7 @@
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from app.api.errors.exceptions import (
     ExternalAPIDataError,
@@ -32,16 +33,28 @@ async def ext_api_request(url: str, **kwargs) -> dict:
         raise ExternalAPIHTTPError(status_code=st_code, detail=text)
 
 
-def ext_api_get_data(data_dict: dict, key: str) -> Any:
-    if key in data_dict:
-        return data_dict[key]
-    raise ExternalAPIDataError(key=key, data_dict=data_dict)
+def ext_api_get_data(key: str, data: dict) -> Any:
+    try:
+        result = data[key]
+    except Exception as e:
+        raise ExternalAPIDataError(
+            detail=f"Ключ '{key}' не найден в JSON из внешнего API.",
+            ext_api_data=data,
+        ) from e
+    return result
 
 
 async def ext_api_get_currencies() -> CurrencyAll:
-    data_dict = await ext_api_request(settings.CURRENCY.URL_LIST)
-    currencies_dict = ext_api_get_data(key="currencies", data_dict=data_dict)
-    return CurrencyAll(currencies=currencies_dict)
+    data = await ext_api_request(settings.CURRENCY.URL_LIST)
+    currencies_dict = ext_api_get_data(key="currencies", data=data)
+    try:
+        result = CurrencyAll(currencies=currencies_dict)
+    except ValidationError as e:
+        raise ExternalAPIDataError(
+            detail="Ошибка валидации данных из внешнего API.",
+            ext_api_data=currencies_dict,
+        ) from e
+    return result
 
 
 async def ext_api_get_exchange(currency: CurrencyRequest) -> CurrencyResponse:
@@ -49,5 +62,12 @@ async def ext_api_get_exchange(currency: CurrencyRequest) -> CurrencyResponse:
     data_dict = await ext_api_request(
         settings.CURRENCY.URL_EXCHANGE, **req_params
     )
-    result = ext_api_get_data(key="result", data_dict=data_dict)
-    return CurrencyResponse(**req_params, result=result)
+    counted_result = ext_api_get_data(key="result", data=data_dict)
+    try:
+        result = CurrencyResponse(**req_params, result=counted_result)
+    except ValidationError as e:
+        raise ExternalAPIDataError(
+            detail="Ошибка валидации данных из внешнего API.",
+            ext_api_data=counted_result,
+        ) from e
+    return result

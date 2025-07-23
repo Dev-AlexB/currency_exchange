@@ -1,5 +1,3 @@
-import json
-
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
@@ -48,11 +46,6 @@ def request_validation_error_handler(
         content={
             "message": "Ошибка валидации данных клиента.",
             "errors": exc.errors(),
-            "body": (
-                json.dumps(exc.body, ensure_ascii=False, indent=2)
-                if exc.body
-                else None
-            ),
         },
     )
 
@@ -121,7 +114,11 @@ def external_api_data_error_handler(
 ) -> JSONResponse:
     """Обрабатывает и логгирует ошибки в данных внешнего API."""
 
-    message = f"Вызвано исключение {type(exc).__name__}: {exc}"
+    message = (
+        f"Вызвано исключение {exc!r}.\n"
+        f"Данные из внешнего API: {exc.ext_api_data}\n"
+        f"Причина: {exc.__cause__!r}"
+    )
     logger.critical(message)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

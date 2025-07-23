@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
-from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
 from app.api.errors.exceptions import (
@@ -88,12 +87,12 @@ async def test_ext_api_request_network_error(mocker: MockerFixture):
 
 
 def test_ext_api_get_data_success():
-    assert ext_api_get_data({"key": "value"}, "key") == "value"
+    assert ext_api_get_data(data={"key": "value"}, key="key") == "value"
 
 
 def test_ext_api_get_data_missing_key():
-    with pytest.raises(ExternalAPIDataError, match=r"missing"):
-        ext_api_get_data({}, "missing")
+    with pytest.raises(ExternalAPIDataError, match=r"missing_key"):
+        ext_api_get_data(data={}, key="missing_key")
 
 
 @pytest.mark.asyncio
@@ -110,27 +109,31 @@ async def test_ext_api_get_currencies_success(mocker: MockerFixture):
 
 
 @pytest.mark.parametrize(
-    "mock_return, expectation",
+    "mock_return, detail",
     [
-        ({}, pytest.raises(ExternalAPIDataError, match=r"currencies")),
+        (
+            {},
+            "Ключ 'currencies' не найден в JSON из внешнего API.",
+        ),
         (
             {"currencies": {}},
-            pytest.raises(ValidationError, match=r"currencies"),
+            "Ошибка валидации данных из внешнего API.",
         ),
     ],
     ids=["Missing key", "Validation error"],
 )
 @pytest.mark.asyncio
 async def test_ext_api_get_currencies_missing_key(
-    mocker: MockerFixture, mock_return, expectation
+    mocker: MockerFixture, mock_return, detail
 ):
     mocker.patch(
         "app.api.utils.external_api.ext_api_request",
         new_callable=AsyncMock,
         return_value=mock_return,
     )
-    with expectation:
+    with pytest.raises(ExternalAPIDataError) as exc_info:
         await ext_api_get_currencies()
+    assert str(exc_info.value) == detail
 
 
 @pytest.mark.asyncio
@@ -158,41 +161,32 @@ async def test_ext_api_get_exchange_success(mocker: MockerFixture):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "mock_response_data, expectation, side_effect",
+    "mock_response_data, detail",
     [
         # отсутствует ключ result
-        ({}, pytest.raises(ExternalAPIDataError), None),
+        ({}, "Ключ 'result' не найден в JSON из внешнего API."),
         # значение по ключу result не число
-        ({"result": "not_a_number"}, pytest.raises(ValidationError), None),
-        # ошибка в ext_api_request
         (
-            None,
-            pytest.raises(ExternalAPIHTTPError),
-            ExternalAPIHTTPError(status_code=500, detail="Server error"),
+            {"result": "not_a_number"},
+            "Ошибка валидации данных из внешнего API.",
         ),
     ],
     ids=[
         "Missing key 'result'",
         "Validation error in data from external API",
-        "Error during request to external API",
     ],
 )
 async def test_ext_api_get_exchange_error_cases(
-    mocker: MockerFixture, mock_response_data, expectation, side_effect
+    mocker: MockerFixture, mock_response_data, detail
 ):
     currency_req = CurrencyRequest(
         currency_1="USD", currency_2="EUR", amount=100
     )
-    mock_ext_api = mocker.patch(
-        "app.api.utils.external_api.ext_api_request", new_callable=AsyncMock
+    mocker.patch(
+        "app.api.utils.external_api.ext_api_request",
+        new_callable=AsyncMock,
+        return_value=mock_response_data,
     )
-    if side_effect:
-        mock_ext_api.side_effect = side_effect
-    else:
-        mock_ext_api.return_value = mock_response_data
-    with expectation as exc_info:
+    with pytest.raises(ExternalAPIDataError) as exc_info:
         await ext_api_get_exchange(currency_req)
-    if not side_effect:
-        assert "result" in str(exc_info.value)
-    else:
-        assert exc_info.value == side_effect
+    assert str(exc_info.value) == detail

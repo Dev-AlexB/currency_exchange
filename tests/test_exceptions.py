@@ -72,8 +72,8 @@ def test_external_api_http_error():
 
 
 def test_external_api_data_error():
-    key = "missing_key"
-    data = {"some": "data"}
-    exc = ExternalAPIDataError(key, data)
-    assert key in str(exc)
-    assert str(data) in str(exc)
+    detail = "Ключ 'currencies' не найде в ответе внешнего API"
+    ext_api_data = {"some": "data"}
+    exc = ExternalAPIDataError(detail, ext_api_data)
+    assert exc.detail == detail
+    assert exc.ext_api_data == ext_api_data

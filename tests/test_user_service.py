@@ -84,6 +84,7 @@ async def test_authenticate_user_success(
         "app.api.services.user_service.verify_password", return_value=verified
     )
     uow = MagicMock()
+    uow.__aenter__.return_value = uow
     uow.user_repo.get_by_username = AsyncMock(return_value=user_or_none)
     service = UserService(uow)  # type: ignore
     with expectation as exc_info:

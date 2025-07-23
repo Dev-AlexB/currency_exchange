@@ -418,7 +418,7 @@ class TestCurrencySchemas:
             {
                 "username": "bob",
                 "email": "bob@example.com",
-                "password": "bob_pass",
+                "password": "ValidPass!8",
             },
             UserCreate,
         ),
@@ -447,7 +447,6 @@ class TestCurrencySchemas:
     ids=[
         "User",
         "UserCreate",
-        "UserInDB",
         "Token",
         "CurrencyRequest",
         "CurrencyResponse",
