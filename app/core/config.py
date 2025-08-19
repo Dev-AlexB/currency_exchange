@@ -2,6 +2,11 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class AppSettings(BaseModel):
+    HOST: str
+    PORT: int
+
+
 class JWTSettings(BaseModel):
     SECRET_KEY: str
     ALGORITHM: str
@@ -20,6 +25,7 @@ class DatabaseSettings(BaseModel):
 
 
 class Settings(BaseSettings):
+    APP: AppSettings
     JWT: JWTSettings
     CURRENCY: CurrencySettings
     DATABASE: DatabaseSettings
